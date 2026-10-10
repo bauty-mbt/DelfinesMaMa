@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dos delfines, un mismo mar</title>
+<meta name="theme-color" content="#5767d6">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Fredoka:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --sea:#0b3d6e; --rose:#ff8fb1; --aqua:#6fe0ff; --sun:#ffc48a; --paper:#fff4e8; --ink:#17406b;
+    --ui:"Fredoka","Trebuchet MS",system-ui,sans-serif;
+    --hand:"Caveat","Segoe Script","Bradley Hand",cursive;
+  }
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%;overflow:hidden}
+  body{font-family:var(--ui);color:#fff;background:var(--sea);-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
+  #stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+  .tag{position:fixed;left:0;top:0;z-index:2;pointer-events:none;padding:.1rem .6rem;border-radius:99px;white-space:nowrap;
+    font:500 .9rem var(--ui);background:rgba(255,255,255,.18);backdrop-filter:blur(4px);text-shadow:0 0 10px var(--c),0 1px 4px rgba(0,0,0,.35);opacity:0;transition:opacity .8s}
+  .tag.on{opacity:1}
+
+  #meter{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 18px);transform:translateX(-50%);display:flex;gap:.45rem;font-size:1.5rem;pointer-events:none}
+  #meter span{color:rgba(255,255,255,.35);transition:color .3s,transform .3s}
+  #meter span.on{color:var(--rose);transform:scale(1.2);text-shadow:0 0 14px rgba(255,143,177,.9)}
+  #sound{position:fixed;right:calc(env(safe-area-inset-right,0px) + 14px);top:calc(env(safe-area-inset-top,0px) + 12px);width:42px;height:42px;border-radius:50%;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.16);color:#fff;font-size:1.15rem;cursor:pointer;backdrop-filter:blur(6px)}
+
+  #bubble{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 66px);transform:translate(-50%,10px);max-width:min(86vw,430px);padding:.5rem 1.2rem .6rem;border-radius:24px;text-align:center;
+    font-family:var(--hand);font-weight:700;font-size:clamp(1.5rem,5.2vw,1.95rem);line-height:1.15;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.4);backdrop-filter:blur(8px);
+    opacity:0;transition:opacity .35s,transform .35s;pointer-events:none;text-shadow:0 1px 8px rgba(23,64,107,.6)}
+  #bubble.show{opacity:1;transform:translate(-50%,0)}
+
+  #hint{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);transform:translateX(-50%);width:min(88vw,390px);text-align:center;font-size:.98rem;line-height:1.45;color:rgba(255,255,255,.92);text-shadow:0 1px 6px rgba(8,42,85,.7);pointer-events:none;transition:opacity .6s}
+  #hint.gone{opacity:0}
+  #gift{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 22px);transform:translate(-50%,20px);padding:.85rem 1.7rem;border:0;border-radius:999px;cursor:pointer;
+    font:600 1.15rem var(--ui);color:var(--ink);background:linear-gradient(135deg,var(--sun),var(--rose));box-shadow:0 10px 30px rgba(255,143,177,.45);opacity:0;pointer-events:none;transition:opacity .6s,transform .6s}
+  #gift.show{opacity:1;pointer-events:auto;transform:translate(-50%,0);animation:beat 1.8s ease-in-out .8s infinite}
+  @keyframes beat{0%,100%{box-shadow:0 10px 30px rgba(255,143,177,.45)}50%{box-shadow:0 10px 44px rgba(255,196,138,.95)}}
+
+  .fx{position:fixed;pointer-events:none;z-index:5;font-size:var(--s,24px);animation:rise var(--d,1.8s) ease-out forwards;will-change:transform,opacity}
+  @keyframes rise{0%{transform:translate(-50%,-50%) scale(.4);opacity:0}15%{opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% - var(--dy))) scale(1.1) rotate(var(--r));opacity:0}}
+
+  .overlay{position:fixed;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;padding:1.5rem;background:rgba(23,64,107,.55);backdrop-filter:blur(7px);transition:opacity .6s}
+  .overlay[hidden]{display:none}
+  .overlay.out{opacity:0;pointer-events:none}
+  #intro{flex-direction:column;text-align:center;gap:1.1rem}
+  #intro h1{font-weight:600;font-size:clamp(2.1rem,9vw,3.3rem);letter-spacing:-.01em}
+  #intro p{max-width:30ch;font-size:1.15rem;line-height:1.5;color:rgba(255,255,255,.94)}
+  .btn{margin-top:.4rem;padding:.85rem 1.8rem;border:0;border-radius:999px;cursor:pointer;font:600 1.1rem var(--ui);color:var(--ink);background:linear-gradient(135deg,var(--sun),var(--rose))}
+  .btn:focus-visible,#sound:focus-visible,#gift:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+  #letter .card{width:min(92vw,460px);max-height:86vh;overflow:auto;padding:1.8rem 1.6rem 1.5rem;border-radius:18px;background:var(--paper);color:var(--ink);box-shadow:0 24px 70px rgba(0,0,0,.45);
+    font-family:var(--hand);font-weight:500;font-size:clamp(1.45rem,5vw,1.75rem);line-height:1.3;animation:unfold .7s cubic-bezier(.2,.9,.3,1.2)}
+  @keyframes unfold{from{transform:scale(.7) rotate(-3deg);opacity:0}to{transform:none;opacity:1}}
+  #letter h2{font-weight:700;font-size:2.1rem;margin-bottom:.6rem}
+  #letter p{margin-bottom:.8rem}
+  #letter .sign{text-align:right;font-weight:700;font-size:1.9rem;margin-top:.4rem}
+  #letter .btn{display:block;margin:1.1rem auto 0;font-size:1rem;color:#fff;background:var(--ink)}
+  @media (prefers-reduced-motion:reduce){#gift.show{animation:none}.fx{animation-duration:1s}}
+</style>
+</head>
+<body>
+
+<canvas id="stage" aria-label="Dos delfines en el mar al atardecer. Mové el dedo para guiar al tuyo y tocá para que salte."></canvas>
+<div class="tag" id="tagHer"></div>
+<div class="tag" id="tagHim"></div>
+
+<div id="meter" aria-hidden="true"></div>
+<button id="sound" type="button" aria-label="Silenciar sonido">🔊</button>
+<div id="bubble" role="status" aria-live="polite"></div>
+<p id="hint">Mové el dedo para guiar a tu delfín. Tocá para que salte. Mantené apretado y el mío nada hasta vos.</p>
+<button id="gift" type="button">Una carta para vos</button>
+
+<div id="intro" class="overlay" role="dialog" aria-labelledby="introTitle">
+  <h1 id="introTitle">Para <span data-name></span></h1>
+  <p>El mar es enorme y hay dos delfines. El rosado sos vos. El azul soy yo.</p>
+  <button id="start" class="btn" type="button">Entrar al mar</button>
+</div>
+
+<div id="letter" class="overlay" role="dialog" aria-labelledby="letterTitle" hidden>
+  <div class="card">
+    <h2 id="letterTitle"></h2>
+    <div id="letterBody"></div>
+    <p class="sign" id="letterSign"></p>
+    <button id="closeLetter" class="btn" type="button">Volver al mar</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ============================================================
+   EDITÁ ESTO: nombres y mensajes. Lo demás ya funciona solo.
+   {name} = su nombre, {me} = tu nombre
+   ============================================================ */
+const CONFIG = {
+  herName: "Ma",
+  myName: "Bauty",
+  meetsToUnlock: 3, // saltos juntos necesarios para que aparezca la carta
+
+  greetings: ["El rosado sos vos. El azul soy yo.", "Ahí estás, ma. Te estaba esperando."],
+  returning: ["¡Volviste, jefa! Vamos a nadar.", "Sabía que ibas a volver, ma."],
+  taps: ["¡Jefa!", "Mirá cómo salto para vos, ma.", "Te vi desde acá.", "Tranquila, ma, acá estoy."],
+  approach: ["Ya voy, ma.", "Nado hasta vos, jefa."],
+  meets: ["¡Juntos, ma!", "Mirá qué lindo salto.", "Siempre juntos, jefa.", "Gracias por nadar conmigo."],
+  leave: ["Cuidate mucho, ma.", "Tranquila, siempre vuelvo.", "Cuidate vos también, jefa."],
+  idle: ["Tocá la pantalla y llevá a tu delfín a donde quieras.", "Tocá para que salte, ma.", "Mantené apretado y nado hasta vos."],
+  unlock: "Te dejé algo en el fondo del mar.",
+
+  letter: [
+    "Ma, quise hacerte algo que se mueva, que te haga sonreír y que te recuerde que siempre estoy cerca.",
+    "Una vez me escribiste que verme armar el mueble de la cocina te llenó de orgullo. Ahora te lo devuelvo: el orgullo es mío, por todo lo que hacés por nosotros.",
+    "Gracias por cada «cuídate mijo», por preguntarme siempre cómo estoy y por estar en las cosas chiquitas, como los ravioles justo cuando hacen falta.",
+    "Vos me escribís «te amo, ¿sabés?». Yo te voy a contestar siempre lo mismo: yo mucho más, jefa.",
+    "Tu mijo."
+  ]
+};
+/* ============================================================ */
+
+const $ = (id) => document.getElementById(id);
+const rand = (a) => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const fill = (s) => s.replace(/\{name\}/g, CONFIG.herName).replace(/\{me\}/g, CONFIG.myName);
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+};
+
+/* ---------- Textos ---------- */
+document.querySelectorAll("[data-name]").forEach((el) => (el.textContent = CONFIG.herName));
+document.title = "Dos delfines para " + CONFIG.herName;
+$("letterTitle").textContent = CONFIG.herName + ",";
+$("letterSign").textContent = "— " + CONFIG.myName;
+CONFIG.letter.forEach((t) => { const p = document.createElement("p"); p.textContent = fill(t); $("letterBody").appendChild(p); });
+$("tagHer").textContent = CONFIG.herName; $("tagHer").style.setProperty("--c", "#ff8fb1");
+$("tagHim").textContent = CONFIG.myName; $("tagHim").style.setProperty("--c", "#6fe0ff");
+
+/* ---------- Estado ---------- */
+const S = {
+  started: false, down: false, hold: false, downT: 0, moved: 0, lx: 0, ly: 0, holdT: null,
+  px: 0, py: 0, mouse: false, touched: false, tx: 0, ty: 0,
+  tapT: -99999, orbit: 0, tog: 0, counted: false, beatT: 0.7, kick: 0, herKick: 0, hisKick: 0, emitT: 0, hisJumpAt: 0,
+  meets: store.get("delfines-meets", 0), lastAct: 0, letterOpen: false, bubT: 0
+};
+
+/* ---------- Medidor ---------- */
+const meter = $("meter");
+for (let i = 0; i < CONFIG.meetsToUnlock; i++) { const s = document.createElement("span"); s.textContent = "♥"; meter.appendChild(s); }
+function updateMeter() { [...meter.children].forEach((s, i) => s.classList.toggle("on", i < S.meets)); }
+updateMeter();
+
+/* ---------- Burbuja y corazones DOM ---------- */
+let bubbleTimer;
+function say(text, ms = 3800) {
+  const b = $("bubble");
+  b.textContent = fill(text);
+  b.classList.add("show");
+  clearTimeout(bubbleTimer);
+  bubbleTimer = setTimeout(() => b.classList.remove("show"), ms);
+  S.lastAct = performance.now();
+}
+const FX = ["💗", "💖", "✨", "🌊", "🐬"];
+function burstDom(x, y, n = 6, spread = 70) {
+  for (let i = 0; i < n; i++) {
+    const e = document.createElement("span");
+    e.className = "fx"; e.textContent = rand(FX);
+    e.style.left = x + (Math.random() - 0.5) * spread + "px"; e.style.top = y + "px";
+    e.style.setProperty("--s", 18 + Math.random() * 18 + "px");
+    e.style.setProperty("--dx", (Math.random() - 0.5) * 120 + "px");
+    e.style.setProperty("--dy", 90 + Math.random() * 130 + "px");
+    e.style.setProperty("--r", (Math.random() - 0.5) * 50 + "deg");
+    e.style.setProperty("--d", 1.4 + Math.random() * 1.1 + "s");
+    e.addEventListener("animationend", () => e.remove());
+    document.body.appendChild(e);
+  }
+}
+
+/* ---------- Audio ---------- */
+let ac = null, master = null, muted = false, pad = null;
+function audio() {
+  if (!ac) {
+    try { ac = new (window.AudioContext || window.webkitAudioContext)(); master = ac.createGain(); master.gain.value = 1; master.connect(ac.destination); } catch (e) {}
+  }
+  if (ac && ac.state === "suspended") ac.resume();
+  return ac;
+}
+function tone(freq, to, dur, vol, type = "sine") {
+  if (muted) return;
+  const a = audio(); if (!a) return;
+  const o = a.createOscillator(), g = a.createGain(), t = a.currentTime;
+  o.type = type; o.frequency.setValueAtTime(freq, t); o.frequency.exponentialRampToValueAtTime(to, t + dur * 0.8);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(master); o.start(t); o.stop(t + dur + 0.05);
+}
+const chime = (f = 660) => tone(f, f * 1.5, 0.4, 0.12);
+const thump = () => { tone(75, 38, 0.22, 0.3); setTimeout(() => tone(70, 36, 0.2, 0.22), 180); };
+function splashSound(vol = 0.18) {
+  if (muted) return;
+  const a = audio(); if (!a) return;
+  const len = Math.floor(a.sampleRate * 0.35), buf = a.createBuffer(1, len, a.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+  const src = a.createBufferSource(); src.buffer = buf;
+  const f = a.createBiquadFilter(); f.type = "bandpass"; f.frequency.value = 1400; f.Q.value = 0.6;
+  const g = a.createGain(); g.gain.value = vol;
+  src.connect(f); f.connect(g); g.connect(master); src.start();
+}
+function startPad() {
+  const a = audio(); if (!a || pad) return;
+  const g = a.createGain(); g.gain.value = 0.0001; g.connect(master);
+  const os = [131, 196, 262].map((f, i) => { const o = a.createOscillator(); o.type = "sine"; o.frequency.value = f; o.detune.value = i * 4; o.connect(g); o.start(); return o; });
+  g.gain.setTargetAtTime(0.022, a.currentTime, 2);
+  pad = { g, os };
+}
+$("sound").addEventListener("click", () => {
+  muted = !muted;
+  $("sound").textContent = muted ? "🔇" : "🔊";
+  $("sound").setAttribute("aria-label", muted ? "Activar sonido" : "Silenciar sonido");
+  if (master) master.gain.value = muted ? 0 : 1;
+});
+
+/* ---------- Escena ---------- */
+const canvas = $("stage");
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(35, 1, 0.1, 100);
+const HORIZON = 0.30; // fracción de la pantalla (desde arriba) donde está la línea del agua
+
+/* Fondo: cielo de atardecer y mar */
+(() => {
+  const c = document.createElement("canvas"); c.width = 2; c.height = 512;
+  const x = c.getContext("2d"), g = x.createLinearGradient(0, 0, 0, 512);
+  g.addColorStop(0, "#4a5bd0"); g.addColorStop(HORIZON * 0.6, "#c487c9"); g.addColorStop(HORIZON, "#ffd0a0");
+  g.addColorStop(HORIZON + 0.001, "#4cc0d4"); g.addColorStop(0.5, "#1d8ab8"); g.addColorStop(0.8, "#0e5088"); g.addColorStop(1, "#082a55");
+  x.fillStyle = g; x.fillRect(0, 0, 2, 512);
+  scene.background = new THREE.CanvasTexture(c);
+})();
+
+function glowTexture() {
+  const c = document.createElement("canvas"); c.width = c.height = 64;
+  const x = c.getContext("2d"), g = x.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,255,255,1)"); g.addColorStop(0.35, "rgba(255,255,255,.35)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+function rayTexture() {
+  const c = document.createElement("canvas"); c.width = 32; c.height = 128;
+  const x = c.getContext("2d");
+  const v = x.createLinearGradient(0, 0, 0, 128); v.addColorStop(0, "rgba(255,255,255,.9)"); v.addColorStop(1, "rgba(255,255,255,0)");
+  x.fillStyle = v; x.fillRect(0, 0, 32, 128);
+  x.globalCompositeOperation = "destination-in";
+  const h = x.createLinearGradient(0, 0, 32, 0); h.addColorStop(0, "rgba(0,0,0,0)"); h.addColorStop(0.5, "rgba(0,0,0,1)"); h.addColorStop(1, "rgba(0,0,0,0)");
+  x.fillStyle = h; x.fillRect(0, 0, 32, 128);
+  return new THREE.CanvasTexture(c);
+}
+const GLOW = glowTexture(), RAY = rayTexture();
+const WHITE = new THREE.Color(0xffffff), ADD = THREE.AdditiveBlending;
+
+/* Luces */
+scene.add(new THREE.HemisphereLight(0xffe2c4, 0x2a6fa0, 0.95));
+const sunLight = new THREE.DirectionalLight(0xffd9b0, 0.9); sunLight.position.set(6, 8, 7); scene.add(sunLight);
+const fillLight = new THREE.PointLight(0x9fe0ff, 0.5, 40); fillLight.position.set(-6, -2, 6); scene.add(fillLight);
+
+/* Sol y reflejo */
+const sun = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffb36b, transparent: true, opacity: 0.9, blending: ADD, depthWrite: false }));
+const sunCore = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xfff0d0, transparent: true, opacity: 0.95, blending: ADD, depthWrite: false }));
+const sunRef = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffc890, transparent: true, opacity: 0.28, blending: ADD, depthWrite: false }));
+scene.add(sun, sunCore, sunRef);
+
+/* Tinte del agua (por delante de los delfines) y rayos de luz */
+const tint = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ color: 0x1a86b8, transparent: true, opacity: 0.2, depthWrite: false }));
+scene.add(tint);
+const rays = [];
+for (let i = 0; i < 5; i++) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshBasicMaterial({ map: RAY, color: 0xcff3ff, transparent: true, opacity: 0.1, blending: ADD, depthWrite: false }));
+  m.userData = { fx: (i - 2) / 2.4, seed: i * 1.3 };
+  scene.add(m); rays.push(m);
+}
+
+/* Línea de la superficie */
+const SURF_N = 100;
+const surfPos = new Float32Array(SURF_N * 3), surfPos2 = new Float32Array(SURF_N * 3);
+const surfGeo = new THREE.BufferGeometry(); surfGeo.setAttribute("position", new THREE.BufferAttribute(surfPos, 3));
+const surfGeo2 = new THREE.BufferGeometry(); surfGeo2.setAttribute("position", new THREE.BufferAttribute(surfPos2, 3));
+const surf1 = new THREE.Line(surfGeo, new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.75 }));
+const surf2 = new THREE.Line(surfGeo2, new THREE.LineBasicMaterial({ color: 0xcff3ff, transparent: true, opacity: 0.35 }));
+surf1.frustumCulled = surf2.frustumCulled = false; scene.add(surf1, surf2);
+
+/* ---------- Delfines ---------- */
+const G = 14;
+function makeDolphin(backHex, bellyHex) {
+  const g = new THREE.Group(); g.rotation.order = "YZX"; scene.add(g);
+  const back = new THREE.MeshStandardMaterial({ color: backHex, roughness: 0.4, metalness: 0.05 });
+  const belly = new THREE.MeshStandardMaterial({ color: bellyHex, roughness: 0.45 });
+  const dark = new THREE.MeshStandardMaterial({ color: 0x1b2430, roughness: 0.3 });
+  const body = new THREE.Group(); g.add(body);
+  const SP = new THREE.SphereGeometry(1, 28, 18), CONE = new THREE.ConeGeometry(1, 1, 16);
+  const add = (geo, mat, x, y, z, sx, sy, sz, parent = body) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz); parent.add(m); return m;
+  };
+  add(SP, back, 0, 0, 0, 1.5, 0.5, 0.5);            // torso
+  add(SP, belly, 0.05, -0.2, 0, 1.38, 0.3, 0.45);   // panza clara
+  add(SP, back, 1.3, 0.06, 0, 0.62, 0.4, 0.42);     // frente
+  add(SP, belly, 1.85, -0.08, 0, 0.5, 0.1, 0.14);   // pico
+  add(SP, back, -1.45, 0.04, 0, 0.95, 0.27, 0.27);  // cola (pedúnculo)
+  const tail = new THREE.Group(); tail.position.set(-2.25, 0.04, 0); body.add(tail);
+  add(SP, back, -0.12, 0, 0, 0.3, 0.045, 0.62, tail); // aleta de la cola
+  const dorsal = add(CONE, back, -0.15, 0.6, 0, 0.3, 0.62, 0.09); dorsal.rotation.z = 0.5;
+  [-1, 1].forEach((s) => {
+    const f = add(CONE, back, 0.55, -0.3, s * 0.4, 0.15, 0.55, 0.07); f.rotation.z = Math.PI - 0.7; f.rotation.x = s * 0.6;
+    add(SP, dark, 1.45, 0.2, s * 0.37, 0.06, 0.06, 0.06);
+  });
+  return {
+    g, body, tail, pos: new THREE.Vector3(), vel: new THREE.Vector3(), target: new THREE.Vector3(),
+    phase: Math.random() * 6, k: 3, facing: 1, yaw: 0, pitchS: 0, jump: false, prevY: 0, sc: 1
+  };
+}
+
+const her = makeDolphin(0xd58fb0, 0xffe3ee), him = makeDolphin(0x4f8fc0, 0xe6f4ff);
+her.k = 14; him.k = 1.6;
+
+/* ---------- Partículas (con gravedad opcional) ---------- */
+const PN = 420;
+const pPos = new Float32Array(PN * 3), pCol = new Float32Array(PN * 3), pBase = new Float32Array(PN * 3), pVel = new Float32Array(PN * 3);
+const pLife = new Float32Array(PN), pMax = new Float32Array(PN), pGrav = new Float32Array(PN);
+for (let i = 0; i < PN; i++) pPos[i * 3 + 2] = -999;
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute("position", new THREE.BufferAttribute(pPos, 3));
+pGeo.setAttribute("color", new THREE.BufferAttribute(pCol, 3));
+const pPoints = new THREE.Points(pGeo, new THREE.PointsMaterial({ size: 0.3, map: GLOW, vertexColors: true, transparent: true, blending: ADD, depthWrite: false }));
+pPoints.frustumCulled = false; pPoints.renderOrder = 5; scene.add(pPoints);
+let pHead = 0;
+function emit(x, y, z, col, vx, vy, vz, life, grav = 0) {
+  const i = pHead; pHead = (pHead + 1) % PN;
+  pPos[i * 3] = x; pPos[i * 3 + 1] = y; pPos[i * 3 + 2] = z;
+  pBase[i * 3] = col.r; pBase[i * 3 + 1] = col.g; pBase[i * 3 + 2] = col.b;
+  pVel[i * 3] = vx; pVel[i * 3 + 1] = vy; pVel[i * 3 + 2] = vz;
+  pLife[i] = pMax[i] = life; pGrav[i] = grav;
+}
+function updateParticles(dt) {
+  for (let i = 0; i < PN; i++) {
+    if (pLife[i] <= 0) continue;
+    pLife[i] -= dt;
+    if (pLife[i] <= 0) { pPos[i * 3 + 2] = -999; pCol[i * 3] = pCol[i * 3 + 1] = pCol[i * 3 + 2] = 0; continue; }
+    pVel[i * 3 + 1] -= pGrav[i] * dt;
+    pPos[i * 3] += pVel[i * 3] * dt; pPos[i * 3 + 1] += pVel[i * 3 + 1] * dt; pPos[i * 3 + 2] += pVel[i * 3 + 2] * dt;
+    const f = pLife[i] / pMax[i];
+    pCol[i * 3] = pBase[i * 3] * f; pCol[i * 3 + 1] = pBase[i * 3 + 1] * f; pCol[i * 3 + 2] = pBase[i * 3 + 2] * f;
+  }
+  pGeo.attributes.position.needsUpdate = true; pGeo.attributes.color.needsUpdate = true;
+}
+const PINK = new THREE.Color(0xff8fb1), AQUA = new THREE.Color(0x6fe0ff), HEARTC = new THREE.Color(0xffa6c8), FOAM = new THREE.Color(0xe8f8ff), SUNC = new THREE.Color(0xffd9a0);
+function heartBurst(cx, cy, sc) {
+  const n = 64;
+  for (let i = 0; i < n; i++) {
+    const t = (i / n) * Math.PI * 2;
+    const x = (16 * Math.pow(Math.sin(t), 3)) / 17;
+    const y = (13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t)) / 17;
+    emit(cx + x * sc, cy + y * sc, 0.5, i % 3 ? HEARTC : WHITE, x * 0.18, y * 0.18, 0, 2.4);
+  }
+}
+
+/* Burbujas ambiente bajo el agua */
+const bubbles = (() => {
+  const n = 90, pos = new Float32Array(n * 3);
+  const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const p = new THREE.Points(g, new THREE.PointsMaterial({ size: 0.12, map: GLOW, color: 0xe8f8ff, transparent: true, opacity: 0.5, blending: ADD, depthWrite: false }));
+  p.frustumCulled = false; scene.add(p); return { p, pos, n, init: false };
+})();
+
+/* Halo cuando se encuentran */
+const union = new THREE.Sprite(new THREE.SpriteMaterial({ map: GLOW, color: 0xffa6c8, transparent: true, opacity: 0, blending: ADD, depthWrite: false }));
+scene.add(union);
+
+/* ---------- Tamaño y disposición ---------- */
+const B = { hw: 4, hh: 6, water: 2.4, sc: 1, w: 800 };
+function layout() {
+  const w = innerWidth, h = innerHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const dist = Math.max(11, 8.3 / camera.aspect);
+  camera.position.set(0, 0, dist);
+  camera.updateProjectionMatrix();
+  B.hh = Math.tan((camera.fov * Math.PI) / 360) * dist;
+  B.hw = B.hh * camera.aspect;
+  B.water = B.hh * (1 - 2 * HORIZON);
+  B.sc = clamp(B.hw / 5.5, 0.42, 1);
+  her.sc = him.sc = B.sc;
+
+  const depthH = B.water + B.hh + 0.5;
+  tint.scale.set(B.hw * 2 + 4, depthH, 1); tint.position.set(0, B.water - depthH / 2, 1.5);
+  rays.forEach((m) => { m.scale.set(B.hw * 0.5, depthH, 1); m.position.set(m.userData.fx * B.hw, B.water - depthH / 2, -4); });
+  const sx = B.hw * 0.45;
+  sun.scale.set(B.hh * 1.6, B.hh * 1.6, 1); sun.position.set(sx, B.water + (B.hh - B.water) * 0.3, -9);
+  sunCore.scale.set(B.hh * 0.5, B.hh * 0.5, 1); sunCore.position.copy(sun.position);
+  sunRef.scale.set(B.hh * 0.35, B.hh * 1.3, 1); sunRef.position.set(sx, B.water - B.hh * 0.5, -7);
+  for (let i = 0; i < SURF_N; i++) { const x = -B.hw - 1 + (i / (SURF_N - 1)) * (B.hw * 2 + 2); surfPos[i * 3] = surfPos2[i * 3] = x; surfPos[i * 3 + 2] = surfPos2[i * 3 + 2] = 1.6; }
+  if (!bubbles.init) {
+    for (let i = 0; i < bubbles.n; i++) { bubbles.pos[i * 3] = (Math.random() - 0.5) * B.hw * 2.4; bubbles.pos[i * 3 + 1] = -B.hh + Math.random() * (B.water + B.hh); bubbles.pos[i * 3 + 2] = -3 + Math.random() * 3.5; }
+    bubbles.init = true;
+  }
+}
+addEventListener("resize", layout);
+layout();
+const cx = (x) => clamp(x, -(B.hw - 1.3), B.hw - 1.3);
+const cy = (y) => clamp(y, -B.hh * 0.8, B.water - 0.9 * B.sc);
+
+her.pos.set(-B.hw * 0.3, B.water - B.hh * 0.35, 0); him.pos.set(B.hw * 0.4, -B.hh * 0.1, 0);
+[her, him].forEach((d) => { d.target.copy(d.pos); d.prevY = d.pos.y; });
+
+/* ---------- Saltos y movimiento ---------- */
+function splash(x, vy) {
+  const n = 14 + Math.min(16, Math.floor(vy * 2));
+  for (let i = 0; i < n; i++) emit(x + (Math.random() - 0.5) * 0.8 * B.sc, B.water, 0.8, Math.random() < 0.6 ? FOAM : AQUA, (Math.random() - 0.5) * 3, 1.5 + Math.random() * 3.5, 0, 0.9 + Math.random() * 0.5, 9);
+  splashSound(clamp(vy / 40, 0.06, 0.22));
+}
+function doJump(d, dir) {
+  if (d.jump) return;
+  const apex = clamp((B.hh - B.water) * 0.7, 1.0, 2.6);
+  const depth = Math.max(0, B.water - d.pos.y);
+  d.vel.y = Math.sqrt(2 * G * (apex + depth));
+  d.vel.x = (dir || d.facing) * (1.6 + Math.random() * 0.8);
+  d.jump = true;
+}
+function stepDolphin(d, dt, t, kick) {
+  if (d.jump) {
+    d.vel.y -= G * dt;
+    d.pos.addScaledVector(d.vel, dt);
+    if (d.pos.y < B.water - 0.6 * B.sc && d.vel.y < 0) { d.jump = false; d.vel.x *= 0.4; d.vel.y *= 0.3; }
+  } else {
+    const k = d.k, c = 2 * Math.sqrt(k) * 0.9;
+    d.vel.x += ((d.target.x - d.pos.x) * k - d.vel.x * c) * dt;
+    d.vel.y += ((d.target.y - d.pos.y) * k - d.vel.y * c) * dt;
+    d.vel.z += ((d.target.z - d.pos.z) * k - d.vel.z * c) * dt;
+    d.pos.addScaledVector(d.vel, dt);
+  }
+  // salpicadura al cruzar la superficie
+  if ((d.prevY - B.water) * (d.pos.y - B.water) < 0 && Math.abs(d.vel.y) > 3) splash(d.pos.x, Math.abs(d.vel.y));
+  d.prevY = d.pos.y;
+
+  const speed = d.vel.length();
+  if (d.vel.x > 0.6) d.facing = 1; else if (d.vel.x < -0.6) d.facing = -1;
+  d.yaw += ((d.facing === 1 ? 0 : Math.PI) - d.yaw) * Math.min(1, dt * 6);
+  const pitchT = clamp(Math.atan2(d.vel.y, Math.max(0.4, Math.abs(d.vel.x))), -1.2, 1.2) * (d.jump ? 1 : 0.55);
+  d.pitchS += (pitchT - d.pitchS) * Math.min(1, dt * 8);
+  d.g.rotation.set(0, d.yaw, d.pitchS);
+  const bob = d.jump ? 0 : Math.sin(t * 1.1 + d.phase) * 0.06;
+  d.g.position.set(d.pos.x, d.pos.y + bob, d.pos.z);
+  d.g.scale.setScalar(d.sc * (1 + kick * 0.07));
+  d.tail.rotation.z = Math.sin(d.phase * 2) * (0.25 + Math.min(speed / 4, 1) * 0.35);
+  d.body.rotation.z = Math.sin(d.phase * 2 - 0.9) * 0.05;
+  return speed;
+}
+
+/* ---------- Interacción ---------- */
+function toWorld(e) {
+  S.px = (e.clientX / innerWidth * 2 - 1) * B.hw;
+  S.py = -(e.clientY / innerHeight * 2 - 1) * B.hh;
+}
+function beginHold() {
+  if (!S.down || S.letterOpen) return;
+  S.hold = true;
+  S.orbit = Math.atan2(him.pos.y - her.pos.y, him.pos.x - her.pos.x);
+  say(rand(CONFIG.approach), 2200);
+}
+canvas.addEventListener("pointerdown", (e) => {
+  if (!S.started || S.letterOpen) return;
+  canvas.setPointerCapture(e.pointerId);
+  toWorld(e);
+  S.down = true; S.downT = performance.now(); S.moved = 0; S.lx = e.clientX; S.ly = e.clientY; S.touched = true; S.lastAct = performance.now();
+  clearTimeout(S.holdT); S.holdT = setTimeout(beginHold, 350);
+});
+canvas.addEventListener("pointermove", (e) => {
+  if (e.pointerType === "mouse") S.mouse = true;
+  toWorld(e);
+  if (S.down) { S.moved += Math.hypot(e.clientX - S.lx, e.clientY - S.ly); S.lx = e.clientX; S.ly = e.clientY; S.lastAct = performance.now(); }
+});
+function release(cancelled) {
+  if (!S.down) return;
+  S.down = false; clearTimeout(S.holdT);
+  const dur = performance.now() - S.downT, wasHold = S.hold;
+  S.hold = false;
+  if (wasHold) {
+    if (S.counted) say(rand(CONFIG.leave), 3500);
+    else if (S.tog > 0.5) say("Un poquito más… no me sueltes todavía.");
+    S.counted = false;
+    return;
+  }
+  if (!cancelled && dur < 350 && S.moved < 14) {
+    S.tapT = performance.now(); S.herKick = 1;
+    doJump(her, her.pos.x > 0 ? -1 : 1);
+    S.hisJumpAt = performance.now() + 450;
+    chime(520 + Math.random() * 200);
+    if (Math.random() < 0.75) say(rand(CONFIG.taps), 3000);
+  }
+}
+canvas.addEventListener("pointerup", () => release(false));
+canvas.addEventListener("pointercancel", () => release(true));
+canvas.addEventListener("contextmenu", (e) => e.preventDefault());
+
+/* ---------- Carta ---------- */
+function openLetter() {
+  S.letterOpen = true; S.hold = false;
+  $("letter").hidden = false;
+  chime(660); setTimeout(() => chime(880), 160);
+  burstDom(innerWidth / 2, innerHeight * 0.6, 16, 220);
+  $("closeLetter").focus();
+}
+function closeLetter() { S.letterOpen = false; $("letter").hidden = true; S.lastAct = performance.now(); $("gift").focus(); }
+$("gift").addEventListener("click", openLetter);
+$("closeLetter").addEventListener("click", closeLetter);
+$("letter").addEventListener("click", (e) => { if (e.target === $("letter")) closeLetter(); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && S.letterOpen) closeLetter(); });
+
+/* ---------- Inicio ---------- */
+$("start").addEventListener("click", () => {
+  audio(); startPad(); chime(740);
+  const intro = $("intro"); intro.classList.add("out");
+  setTimeout(() => (intro.hidden = true), 650);
+  S.started = true; S.lastAct = performance.now();
+  $("tagHer").classList.add("on"); $("tagHim").classList.add("on");
+  const visits = store.get("delfines-visits", 0); store.set("delfines-visits", visits + 1);
+  setTimeout(() => say(visits > 0 ? rand(CONFIG.returning) : CONFIG.greetings[0], 4200), 600);
+  setTimeout(() => doJump(him, -1), 1200);
+  if (S.meets >= CONFIG.meetsToUnlock) { $("gift").classList.add("show"); $("hint").classList.add("gone"); }
+});
+setInterval(() => {
+  if (!S.started || S.down || S.letterOpen) return;
+  if (performance.now() - S.lastAct > 13000) say(rand(CONFIG.idle), 3800);
+}, 1000);
+
+function meet() {
+  S.counted = true; S.meets++; store.set("delfines-meets", S.meets); updateMeter();
+  const dir = (her.pos.x + him.pos.x) / 2 > 0 ? -1 : 1;
+  doJump(her, dir); doJump(him, dir); // salto sincronizado
+  setTimeout(() => {
+    const mx = (her.pos.x + him.pos.x) / 2;
+    heartBurst(mx, B.water + clamp((B.hh - B.water) * 0.45, 0.9, 1.6), 1.5 * Math.max(B.sc, 0.7));
+    burstDom(innerWidth / 2, innerHeight * 0.3, 12, 160);
+    chime(880); setTimeout(() => chime(1175), 180);
+  }, 450);
+  $("hint").classList.add("gone");
+  if (S.meets === CONFIG.meetsToUnlock) {
+    say(CONFIG.meets[0]);
+    setTimeout(() => { say(CONFIG.unlock, 4500); $("gift").classList.add("show"); chime(990); }, 2600);
+  } else say(rand(CONFIG.meets));
+}
+
+/* ---------- Animación ---------- */
+const clock = new THREE.Clock(), proj = new THREE.Vector3();
+function placeTag(el, d) {
+  proj.set(d.pos.x, d.pos.y + 1.1 * B.sc, 0).project(camera);
+  el.style.transform = "translate(" + ((proj.x * 0.5 + 0.5) * innerWidth) + "px," + ((-proj.y * 0.5 + 0.5) * innerHeight) + "px) translate(-50%,-50%)";
+}
+
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(clock.getDelta(), 0.05), t = clock.elapsedTime, now = performance.now();
+
+  // objetivo de ella (siempre bajo el agua; los saltos salen de un toque)
+  let hx, hy;
+  if (S.down || S.mouse) { hx = S.px; hy = S.py; S.touched = true; S.tx = hx; S.ty = hy; }
+  else if (S.touched) { hx = S.tx + Math.sin(t * 0.7) * 0.35; hy = S.ty + Math.sin(t * 0.9 + 1) * 0.3; }
+  else { hx = -B.hw * 0.3 + Math.sin(t * 0.5) * 0.6; hy = B.water - B.hh * 0.35 + Math.sin(t * 0.7) * 0.4; }
+  her.target.set(cx(hx), cy(hy), 0);
+
+  // objetivo de él
+  const dist = him.pos.distanceTo(her.pos);
+  const together = S.hold && !her.jump && !him.jump && dist < 1.9 * B.sc + 0.5;
+  if (S.hold) {
+    if (together) S.orbit += dt * 1.1;
+    const R = 1.25 * B.sc;
+    him.target.set(cx(her.pos.x + Math.cos(S.orbit) * R), cy(her.pos.y + Math.sin(S.orbit) * R * 0.5), Math.sin(S.orbit) * 0.8 * B.sc);
+    him.k = 4;
+  } else if (now - S.tapT < 4000) {
+    him.target.set(cx(her.pos.x + (her.pos.x > 0 ? -3 : 3) * B.sc), cy(her.pos.y - 0.6), 0); him.k = 2.4;
+  } else {
+    him.target.set(cx(-her.pos.x * 0.7 + Math.sin(t * 0.23) * B.hw * 0.5), cy(-B.hh * 0.15 + Math.sin(t * 0.31) * B.hh * 0.35 - her.pos.y * 0.2), 0); him.k = 1.6;
+  }
+  if (S.hisJumpAt && now >= S.hisJumpAt) { S.hisJumpAt = 0; S.hisKick = 1; doJump(him, Math.sign(her.pos.x - him.pos.x) || 1); }
+
+  // tiempo juntos y latido
+  S.tog = together ? S.tog + dt : Math.max(0, S.tog - dt * 2);
+  if (together && S.tog > 2.6 && !S.counted) meet();
+  if (together) {
+    S.beatT += dt;
+    if (S.beatT >= 0.9) { S.beatT = 0; S.kick = 1; thump(); if (navigator.vibrate) navigator.vibrate([25, 90, 35]); }
+    S.emitT += dt;
+    if (S.emitT > 0.12) {
+      S.emitT = 0;
+      const mx = (her.pos.x + him.pos.x) / 2, my = (her.pos.y + him.pos.y) / 2;
+      emit(mx + (Math.random() - 0.5) * 1.2, my + (Math.random() - 0.5) * 0.6, 0.8, Math.random() < 0.5 ? PINK : AQUA, (Math.random() - 0.5) * 0.4, 0.7 + Math.random() * 0.6, 0, 1.6);
+    }
+  } else S.beatT = 0.7;
+  S.kick = Math.max(0, S.kick - dt * 3);
+  S.herKick = Math.max(0, S.herKick - dt * 2.5);
+  S.hisKick = Math.max(0, S.hisKick - dt * 2.5);
+
+  // nado: al estar juntos, la cola late al unísono
+  const sp1 = stepDolphin(her, dt, t, Math.max(S.kick, S.herKick));
+  her.phase += dt * (2.4 + sp1 * 0.9);
+  him.phase = together ? her.phase : him.phase + dt * (2.0 + him.vel.length() * 0.9);
+  const sp2 = stepDolphin(him, dt, t, Math.max(S.kick, S.hisKick));
+
+  // burbujitas al nadar bajo el agua
+  if (!her.jump && sp1 > 1.2 && Math.random() < 0.5) emit(her.pos.x - her.facing * 1.5 * B.sc, her.pos.y, 0.3, FOAM, 0, 0.8, 0, 1.4);
+  if (!him.jump && sp2 > 1.2 && Math.random() < 0.5) emit(him.pos.x - him.facing * 1.5 * B.sc, him.pos.y, 0.3, FOAM, 0, 0.8, 0, 1.4);
+  updateParticles(dt);
+
+  // halo entre los dos
+  union.position.set((her.pos.x + him.pos.x) / 2, (her.pos.y + him.pos.y) / 2, 0.6);
+  union.scale.set(5 * B.sc + 1, 5 * B.sc + 1, 1);
+  union.material.opacity = clamp(S.tog / 2.6, 0, 1) * 0.45;
+
+  // mar: superficie, rayos, burbujas
+  for (let i = 0; i < SURF_N; i++) {
+    const x = surfPos[i * 3];
+    const y = B.water + Math.sin(x * 0.9 + t * 1.4) * 0.06 + Math.sin(x * 0.37 - t * 0.8) * 0.05;
+    surfPos[i * 3 + 1] = y; surfPos2[i * 3 + 1] = y - 0.14 + Math.sin(x * 0.6 + t * 1.1) * 0.03;
+  }
+  surfGeo.attributes.position.needsUpdate = true; surfGeo2.attributes.position.needsUpdate = true;
+  rays.forEach((m) => { m.rotation.z = 0.28 + Math.sin(t * 0.2 + m.userData.seed) * 0.05; m.material.opacity = 0.08 + 0.04 * Math.sin(t * 0.5 + m.userData.seed); });
+  const bp = bubbles.pos;
+  for (let i = 0; i < bubbles.n; i++) {
+    bp[i * 3 + 1] += dt * (0.25 + (i % 5) * 0.08);
+    bp[i * 3] += Math.sin(t * 0.8 + i) * dt * 0.1;
+    if (bp[i * 3 + 1] > B.water - 0.1) { bp[i * 3 + 1] = -B.hh; bp[i * 3] = (Math.random() - 0.5) * B.hw * 2.4; }
+  }
+  bubbles.p.geometry.attributes.position.needsUpdate = true;
+  sun.material.opacity = 0.85 + 0.08 * Math.sin(t * 0.7);
+
+  placeTag($("tagHer"), her); placeTag($("tagHim"), him);
+  renderer.render(scene, camera);
+}
+frame();
+</script>
+</body>
+</html>
